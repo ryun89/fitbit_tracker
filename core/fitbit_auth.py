@@ -33,6 +33,24 @@ def get_access_token(auth_code):
         print("トークン取得エラー:", response.json())
         return None
 
+# トークン更新
+def refresh_access_token(refresh_token):
+    url = "https://api.fitbit.com/oauth2/token"
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+    data = {
+        "client_id": CLIENT_ID,
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    }
+    response = requests.post(url, headers=headers, data=data, auth=(CLIENT_ID, CLIENT_SECRET))
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print("トークン更新エラー:", response.json())
+        return None
+
 if __name__ == "__main__":
     # 認証URL生成＆ブラウザで開く
     auth_url = generate_auth_url()
@@ -46,3 +64,10 @@ if __name__ == "__main__":
 
     if token_response:
         print("アクセストークン取得成功:", token_response)
+
+        # リフレッシュトークンを使ってトークンを更新
+        refresh_token = token_response.get("refresh_token")
+        updated_token_response = refresh_access_token(refresh_token)
+
+        if updated_token_response:
+            print("トークン更新成功:", updated_token_response)
