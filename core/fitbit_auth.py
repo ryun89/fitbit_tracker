@@ -4,18 +4,20 @@ import webbrowser
 # Fitbit API情報
 CLIENT_ID = ""
 CLIENT_SECRET = ""
-REDIRECT_URI = "http://localhost:8501/callback"  # ローカル環境でテスト用
+REDIRECT_URI = "https://127.0.0.1:8080"  # ローカル環境でテスト用
 
 # 認証URL生成
-def generate_auth_url():
+def generate_auth_url(CLIENT_ID, REDIRECT_URI):
+    scope = "activity heartrate profile"
+    scope_encoded = scope.replace(" ", "%20")  # スペースをURLエンコード
     auth_url = (
         f"https://www.fitbit.com/oauth2/authorize?"
-        f"response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=activity heartrate profile"
+        f"response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={scope_encoded}"
     )
     return auth_url
 
 # トークン取得
-def get_access_token(auth_code):
+def get_access_token(auth_code, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI):
     url = "https://api.fitbit.com/oauth2/token"
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -34,7 +36,7 @@ def get_access_token(auth_code):
         return None
 
 # トークン更新
-def refresh_access_token(refresh_token):
+def refresh_access_token(refresh_token, CLIENT_ID, CLIENT_SECRET):
     url = "https://api.fitbit.com/oauth2/token"
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",

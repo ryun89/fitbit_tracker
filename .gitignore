@@ -2,3 +2,4 @@
 venv/
 firebase_token/
 core/__pycache__/firebase_auth.cpython-310.pyc
+core/__pycache__/fitbit_auth.cpython-310.pyc
