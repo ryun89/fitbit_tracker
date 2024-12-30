@@ -1,12 +1,12 @@
 import requests
 from firebase_auth import initialize_firestore
-from firebase_admin import firestore  # タイムスタンプ用
+from firebase_admin import firestore  # Firestoreでのタイムスタンプ保存に使用
 
 # Fitbit APIのエンドポイントをリストで管理
 ENDPOINTS = [
     {
         "data_type": "steps",  # データの種類
-        "endpoint": "/1/user/-/activities/steps/date/today/1d.json"
+        "endpoint": "/1/user/-/activities/steps/date/today/1d/1min.json"
     },
     # 他のデータタイプを追加する場合は以下のようにリストに追加
     # {
@@ -17,6 +17,9 @@ ENDPOINTS = [
 
 # Fitbit APIからデータを取得
 def fetch_fitbit_activity_data(access_token, endpoint):
+    """
+    Fitbit APIから指定したエンドポイントのデータを取得する。
+    """
     url = f"https://api.fitbit.com{endpoint}"
     headers = {
         "Authorization": f"Bearer {access_token}"  # アクセストークンをヘッダーに追加
@@ -32,20 +35,38 @@ def fetch_fitbit_activity_data(access_token, endpoint):
 
 # データを整形してFirestoreに保存
 def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data):
-    # データを時系列形式に変換して保存
-    data_points = activity_data.get(f"activities-{data_type}", [])
-    for entry in data_points:
-        db.collection("activity_data").add({
-            "user_id": user_id,
-            "experiment_id": experiment_id,
-            "data_type": data_type,
-            "timestamp": entry["dateTime"],  # 日付をそのままタイムスタンプとして保存
-            "value": int(entry["value"]),  # データ値（例: 歩数）
-        })
-    print(f"ユーザー {user_id} の {data_type} データがFirestoreに保存されました。")
+    """
+    データをFirestoreに保存する。データは時系列形式で整理される。
+    """
+    try:
+        dataset = activity_data.get(f"activities-{data_type}-intraday", {}).get("dataset", [])
+        date = activity_data.get(f"activities-{data_type}", [{}])[0].get("dateTime", "unknown_date")
+
+        batch = db.batch() # バッチ初期化
+        
+        # Firestoreに保存
+        for data_point in dataset:
+            doc_ref = db.collection("activity_data").document()  # ドキュメント参照を生成
+            batch.set(doc_ref, {
+                "user_id": user_id,
+                "experiment_id": experiment_id,
+                "data_type": data_type,
+                "date": date,
+                "time": data_point["time"],
+                "value": data_point["value"],
+                "timestamp": firestore.SERVER_TIMESTAMP
+            })
+
+        batch.commit()  # バッチコミットで一括保存
+        print(f"ユーザー {user_id} の {data_type} データをバッチ保存しました。")
+    except Exception as e:
+        print(f"Firestoreのバッチ保存中にエラーが発生しました: {e}")
 
 # メイン処理
 def main():
+    """
+    Firestoreからユーザー情報を取得し、Fitbit APIからデータを取得してFirestoreに保存する。
+    """
     db = initialize_firestore()
 
     # Firestoreからユーザー情報を取得

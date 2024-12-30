@@ -10,7 +10,7 @@ REDIRECT_URI = "http://localhost:8501/callback"  # ローカル環境でテス�
 def generate_auth_url():
     auth_url = (
         f"https://www.fitbit.com/oauth2/authorize?"
-        f"response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=activity"
+        f"response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=activity heartrate profile"
     )
     return auth_url
 
