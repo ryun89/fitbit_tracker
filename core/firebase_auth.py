@@ -3,10 +3,12 @@ from firebase_admin import credentials, firestore
 
 # Firebase Admin SDKの初期化
 def initialize_firestore():
-    # 注意: ここでJSONファイルのパスを直接書かないでください！
-    # 環境変数またはStreamlit Secretsを使用してください。
-    cred = credentials.Certificate("")  # ローカル環境用
-    firebase_admin.initialize_app(cred)
+    # Firebaseアプリが既に初期化されているか確認
+    if not firebase_admin._apps:
+        # 注意: ここでJSONファイルのパスを直接書かないでください！
+        # 環境変数またはStreamlit Secretsを使用してください。
+        cred = credentials.Certificate("")  # ローカル環境用
+        firebase_admin.initialize_app(cred)
 
     # Firestoreクライアントを作成して返す
     return firestore.client()
