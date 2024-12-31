@@ -1,7 +1,7 @@
 import requests
 from firebase_auth import initialize_firestore
 from firebase_admin import firestore
-from urllib import quote
+from urllib.parse import quote
 
 
 # 認証URL生成
