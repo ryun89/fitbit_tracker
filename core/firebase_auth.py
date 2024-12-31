@@ -1,17 +1,49 @@
+from google.cloud import secretmanager
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# Google Secret Managerから秘密情報を取得する関数
+def access_secret_version():
+    """
+    Google Secret Managerから最新のシークレットを取得
+    """
+    # Secret Managerクライアントを初期化
+    client = secretmanager.SecretManagerServiceClient()
+    
+    # 環境変数からプロジェクトIDとSecret IDを取得
+    PROJECT_ID = os.getenv("PROJECT_ID")
+    SECRET_ID = os.getenv("SECRET_ID")
+
+    if not project_id or not secret_id:
+        raise EnvironmentError("PROJECT_ID または SECRET_ID が設定されていません。")
+
+    # Secretのパスを作成
+    name = f"projects/{PROJECT_ID}/secrets/{SECRET_ID}/versions/latest"
+
+    # Secretを取得
+    response = client.access_secret_version(request={"name": name})
+
+    # Secretのペイロード（JSON文字列）を取得してデコード
+    secret_payload = response.payload.data.decode("UTF-8")
+    return secret_payload
+
 # Firebase Admin SDKの初期化
 def initialize_firestore():
+    """
+    Firebase Admin SDKを初期化し、Firestoreクライアントを返す
+    """
     # Firebaseアプリが既に初期化されているか確認
     if not firebase_admin._apps:
-        # 注意: ここでJSONファイルのパスを直接書かないでください！
-        # 環境変数またはStreamlit Secretsを使用してください。
-        cred = credentials.Certificate("")  # ローカル環境用
-        firebase_admin.initialize_app(cred)
+        try:
+            # Google Secret ManagerからFirebase認証情報を取得
+            firebase_credentials_json = access_secret_version()
 
-    # Firestoreクライアントを作成して返す
-    return firestore.client()
+            # Firebase Admin SDKを初期化
+            cred = credentials.Certificate(firebase_credentials_json)
+            firebase_admin.initialize_app(cred)
+
+        except Exception as e:
+            raise RuntimeError(f"Firebase Admin SDKの初期化中にエラーが発生しました: {e}")
 
 # アクセストークンをFirestoreに保存
 def save_user_token(db, user_id, experiment_id, token_data):
