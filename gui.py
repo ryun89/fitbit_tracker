@@ -43,7 +43,7 @@ def account_creation_screen(db):
     user_id = st.text_input("新しいユーザーIDを入力してください")
     st.session_state["CLIENT_ID"] = st.text_input("Fitbit APIのクライアントIDを入力してください", value=st.session_state["CLIENT_ID"])
     st.session_state["CLIENT_SECRET"] = st.text_input("Fitbit APIのクライアントシークレットを入力してください", value=st.session_state["CLIENT_SECRET"])
-    REDIRECT_URI = "https://fitbittracker.streamlit.app/callback"  # 変更不要
+    REDIRECT_URI = "https://fitbittracker-bczlqhsg8z7tmzyjptxynr.streamlit.app/callback"  # 変更不要
     st.session_state["experiment_id"] = st.text_input("実験IDを入力してください", value=st.session_state["experiment_id"])
 
     # Fitbit認証URLの生成と表示
