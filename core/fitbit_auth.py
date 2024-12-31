@@ -4,7 +4,7 @@ from firebase_admin import firestore
 
 
 # 認証URL生成
-def generate_auth_url():
+def generate_auth_url(CLIENT_ID, REDIRECT_URI):
     auth_url = (
         f"https://www.fitbit.com/oauth2/authorize?"
         f"response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=activity heartrate profile"
