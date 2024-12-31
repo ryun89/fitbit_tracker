@@ -1,8 +1,11 @@
+import sys
+import os
 import streamlit as st
 import requests
 import pandas as pd
 import webbrowser
 from firebase_admin import firestore
+sys.path.append(os.path.join(os.path.dirname(__file__), "core"))
 from core.firebase_auth import initialize_firestore
 from core.fitbit_auth import generate_auth_url, get_access_token
 
@@ -10,6 +13,8 @@ from core.fitbit_auth import generate_auth_url, get_access_token
 # Firestoreにアカウント情報を登録する
 def save_user_data_to_firestore(db, user_id, token_response, experiment_id):
     db.collection("users").document(user_id).set({
+        "fitbit_client_id": st.session_state["CLIENT_ID"],
+        "fitbit_client_secret": st.session_state["CLIENT_SECRET"],
         "fitbit_access_token": token_response["access_token"],
         "refresh_token": token_response["refresh_token"],
         "token_expiration": token_response["expires_in"],
