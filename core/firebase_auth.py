@@ -14,11 +14,11 @@ def access_secret_version():
     PROJECT_ID = os.getenv("PROJECT_ID")
     SECRET_ID = os.getenv("SECRET_ID")
 
-    if not project_id or not secret_id:
+    if not PROJECT_ID or not SECRET_ID:
         raise EnvironmentError("PROJECT_ID または SECRET_ID が設定されていません。")
 
     # Secretのパスを作成
-    name = f"projects/{PROJECT_ID}/secrets/{SECRET_ID}/versions/latest"
+    name = f"projects/{PROJECT_ID}/secrets/{SECRET_ID}"
 
     # Secretを取得
     response = client.access_secret_version(request={"name": name})
