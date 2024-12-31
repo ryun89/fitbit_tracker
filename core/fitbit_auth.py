@@ -14,7 +14,7 @@ def generate_auth_url(CLIENT_ID, REDIRECT_URI):
     return auth_url
 
 # トークン取得
-def get_access_token(auth_code):
+def get_access_token(auth_code, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI):
     url = "https://api.fitbit.com/oauth2/token"
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
