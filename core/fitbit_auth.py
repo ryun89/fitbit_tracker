@@ -61,20 +61,20 @@ def fetch_fitbit_activity_data(access_token, endpoint):
 # トークンの更新処理
 def refresh_access_token(refresh_token, client_id, client_secret):
     url = "https://api.fitbit.com/oauth2/token"
+    auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": f"Basic {auth_header}"
     }
     data = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
-        "client_id": client_id,
-        "client_secret": client_secret,
     }
     response = requests.post(url, headers=headers, data=data)
     if response.status_code == 200:
         return response.json()
     else:
-        print("トークン更新エラー:", response.json())
+        print(f"トークン更新エラー: ステータスコード={response.status_code}, 内容={response.text}")
         return None
 
 # データを整形してFirestoreに保存
