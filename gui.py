@@ -106,7 +106,7 @@ def main_screen(db):
     st.title("Fitbit Tracker メイン画面")
 
     user_id = st.session_state["user_id"]
-    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart_rate"])
+    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart"])
     date = st.date_input("日付を選択してください")
 
     if st.button("データを取得"):
