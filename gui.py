@@ -119,7 +119,7 @@ def main_screen(db):
             st.write(f"{date} の {data_type} データ")
             df = pd.DataFrame(data)
             df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")
-            df = df.sort_values(by="time").set_index("time")
+            df = df.sort_values(by="time")
             
             # Altairで赤色の折れ線グラフを描画
             chart = alt.Chart(df).mark_line(color="red").encode(
