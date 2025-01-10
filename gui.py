@@ -1,3 +1,4 @@
+import altair as alt
 import sys
 import os
 import streamlit as st
@@ -119,7 +120,17 @@ def main_screen(db):
             df = pd.DataFrame(data)
             df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")
             df = df.sort_values(by="time").set_index("time")
-            st.line_chart(df["value"])
+            
+            # Altairで赤色の折れ線グラフを描画
+            chart = alt.Chart(df).mark_line(color="red").encode(
+                x=alt.X("time:T", title="時間"),
+                y=alt.Y("value:Q", title="値")
+            ).properties(
+                width=700,  # グラフの幅
+                height=400  # グラフの高さ
+            )
+
+            st.altair_chart(chart, use_container_width=True)
         else:
             st.error("データが見つかりませんでした。")
 
