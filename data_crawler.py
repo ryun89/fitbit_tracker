@@ -1,13 +1,37 @@
 import requests
 from firebase_auth import initialize_firestore
 from firebase_admin import firestore
+from datetime import datetime, timedelta, timezone
+import base64
+
+# 日本時間のタイムゾーン
+JST = timezone(timedelta(hours=9))
+
+# 現在の日本時間
+now_jst = datetime.now(JST)
+
+# 1時間前の時刻を取得
+one_hour_ago = now_jst - timedelta(hours=1)
+
+# 日付、開始時刻、終了時刻を指定
+date = one_hour_ago.strftime("%Y-%m-%d")  # 日付
+start_time = one_hour_ago.strftime("%H:%M")  # 1時間前の時刻 (HH:MM形式)
+end_time = now_jst.strftime("%H:%M")  # 現在の時刻 (HH:MM形式)
 
 # Fitbit APIのエンドポイントをリストで管理
 ENDPOINTS = [
     {
         "data_type": "steps",  # データの種類
-        "endpoint": "/1/user/-/activities/steps/date/today/1d/1min.json"
+        "endpoint": f"/1/user/-/activities/steps/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "start_time": start_time,
+        "end_time": end_time
     },
+    {
+        "data_type": "heart",  # データの種類
+        "endpoint": f"/1/user/-/activities/heart/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "start_time": start_time,
+        "end_time": end_time
+    }
 ]
 
 # Fitbit APIからデータを取得
@@ -30,14 +54,17 @@ def fetch_fitbit_activity_data(access_token, endpoint):
 # トークンの更新処理
 def refresh_access_token(refresh_token, client_id, client_secret):
     url = "https://api.fitbit.com/oauth2/token"
+    # client_id と client_secret を Base64 エンコード
+    auth_string = f"{client_id}:{client_secret}"
+    auth_header = base64.b64encode(auth_string.encode()).decode()
+
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": f"Basic {auth_header}",  # ここでAuthorizationヘッダーを追加
     }
     data = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
-        "client_id": client_id,
-        "client_secret": client_secret,
     }
     response = requests.post(url, headers=headers, data=data)
     if response.status_code == 200:
@@ -51,6 +78,8 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data)
     try:
         dataset = activity_data.get(f"activities-{data_type}-intraday", {}).get("dataset", [])
         date = activity_data.get(f"activities-{data_type}", [{}])[0].get("dateTime", "unknown_date")
+        print(f"データの日付: {date}, データ数: {len(dataset)}") # デバッグ用
+        print(f"data-type:{data_type}, activity_data:{activity_data}") # デバッグ用
 
         batch = db.batch()
         for data_point in dataset:
