@@ -19,20 +19,46 @@ start_time = one_hour_ago.strftime("%H:%M")  # 1時間前の時刻 (HH:MM形式)
 end_time = now_jst.strftime("%H:%M")  # 現在の時刻 (HH:MM形式)
 
 # Fitbit APIのエンドポイントをリストで管理
+# Fitbit APIのエンドポイントをリストで管理
 ENDPOINTS = [
     {
-        "data_type": "steps",  # データの種類
+        "data_type": "steps",  # 歩数
         "endpoint": f"/1/user/-/activities/steps/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
         "start_time": start_time,
         "end_time": end_time
     },
     {
-        "data_type": "heart",  # データの種類
-        "endpoint": f"/1/user/-/activities/heart/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "data_type": "heart",  # 心拍数 (5秒おきに変更)
+        "endpoint": f"/1/user/-/activities/heart/date/{date}/1d/1sec/time/{start_time}/{end_time}.json",
         "start_time": start_time,
         "end_time": end_time
-    }
+    },
+    {
+        "data_type": "calories",  # 消費カロリー
+        "endpoint": f"/1/user/-/activities/calories/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "start_time": start_time,
+        "end_time": end_time
+    },
+    {
+        "data_type": "distance",  # 距離
+        "endpoint": f"/1/user/-/activities/distance/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "start_time": start_time,
+        "end_time": end_time
+    },
+    {
+        "data_type": "floors",  # 上った階数
+        "endpoint": f"/1/user/-/activities/floors/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "start_time": start_time,
+        "end_time": end_time
+    },
+    {
+        "data_type": "active_minutes",  # アクティブな時間
+        "endpoint": f"/1/user/-/activities/minutesFairlyActive/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "start_time": start_time,
+        "end_time": end_time
+    },
 ]
+
 
 # Fitbit APIからデータを取得
 def fetch_fitbit_activity_data(access_token, endpoint):
