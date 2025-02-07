@@ -9,6 +9,7 @@ from firebase_admin import firestore
 sys.path.append(os.path.join(os.path.dirname(__file__), "core"))
 from core.firebase_auth import initialize_firestore
 from core.fitbit_auth import generate_auth_url, get_access_token
+from datetime import datetime, timedelta
 
 
 # Firestoreにアカウント情報を登録する
@@ -107,21 +108,42 @@ def main_screen(db):
     st.title("Fitbit Tracker メイン画面")
 
     user_id = st.session_state["user_id"]
-    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart"])
+    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart", "calories", "distance", "floors", "active_minutes"])
     date = st.date_input("日付を選択してください")
 
     if st.button("データを取得"):
-        query = db.collection("activity_data").where("user_id", "==", user_id).where("data_type", "==", data_type).where("date", "==", date.strftime("%Y-%m-%d"))
+        # 指定した日付のデータを取得
+        query = db.collection("activity_data") \
+                  .where("user_id", "==", user_id) \
+                  .where("data_type", "==", data_type) \
+                  .where("date", "==", date.strftime("%Y-%m-%d"))
         docs = query.stream()
         data = [doc.to_dict() for doc in docs]
+
+        # 過去7日間の平均を計算
+        start_date = date - timedelta(days=7)
+        query_avg = db.collection("activity_data") \
+                      .where("user_id", "==", user_id) \
+                      .where("data_type", "==", data_type) \
+                      .where("date", ">=", start_date.strftime("%Y-%m-%d")) \
+                      .where("date", "<", date.strftime("%Y-%m-%d"))
+        docs_avg = query_avg.stream()
+        data_avg = [doc.to_dict() for doc in docs_avg]
 
         if data:
             st.write(f"{date} の {data_type} データ")
             df = pd.DataFrame(data)
             df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")
             df = df.sort_values(by="time")
-            
-            # Altairで赤色の折れ線グラフを描画
+
+            # 過去7日間の平均値を計算
+            if data_avg:
+                df_avg = pd.DataFrame(data_avg)
+                avg_value = df_avg["value"].mean()  # 平均値を計算
+            else:
+                avg_value = None
+
+            # Altairで折れ線グラフを描画
             chart = alt.Chart(df).mark_line(color="red").encode(
                 x=alt.X("time:T", title="時間"),
                 y=alt.Y("value:Q", title="値")
@@ -130,10 +152,17 @@ def main_screen(db):
                 height=400  # グラフの高さ
             )
 
+            # 過去7日間の平均値を横線として追加
+            if avg_value is not None:
+                avg_line = alt.Chart(pd.DataFrame({"平均値": [avg_value]})).mark_rule(
+                    color="yellow", strokeDash=[5, 5]
+                ).encode(y="平均値:Q")
+
+                chart = chart + avg_line  # グラフに横線を追加
+
             st.altair_chart(chart, use_container_width=True)
         else:
             st.error("データが見つかりませんでした。")
-
 
 # メイン関数
 def main():
