@@ -3,6 +3,7 @@ from firebase_auth import initialize_firestore
 from firebase_admin import firestore
 from datetime import datetime, timedelta, timezone
 import base64
+import pandas as pd
 
 # 日本時間のタイムゾーン
 JST = timezone(timedelta(hours=9))
@@ -106,10 +107,20 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data)
         date = activity_data.get(f"activities-{data_type}", [{}])[0].get("dateTime", "unknown_date")
         print(f"データの日付: {date}, データ数: {len(dataset)}") # デバッグ用
         print(f"data-type:{data_type}, activity_data:{activity_data}") # デバッグ用
+        
+        # heart_rateの場合は5秒ごとのデータを取得
+        if data_type == "heart":
+            df = pd.DataFrame(dataset)
+            df_resampled = resample_to_5s(df)
+            dataset = df_resampled.to_dict(orient="records") # レコードのリストに変換
 
         batch = db.batch()
         for data_point in dataset:
-            doc_ref = db.collection("activity_data").document()
+            doc_ref = db.collection("activity_data") \
+                .document(user_id) \
+                .collection(data_type) \
+                .document()
+                
             batch.set(doc_ref, {
                 "user_id": user_id,
                 "experiment_id": experiment_id,
@@ -123,9 +134,17 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data)
         print(f"ユーザー {user_id} の {data_type} データを保存しました。")
     except Exception as e:
         print(f"Firestoreの保存中にエラーが発生しました: {e}")
+        
+# 5秒ごとにリサンプリングする関数（線形補間）
+def resample_to_5s(df) -> pd.DataFrame:
+    df.set_index("time", inplace=True)  # インデックスを時間に設定
+    # 5秒ごとのデータに線形補間
+    df_resampled = df.resample("5S").interpolate(method="linear").reset_index()
+    
+    return df_resampled
 
 # 全ユーザーのデータを取得
-def process_all_users(data, context):
+def process_all_users(data, context=None):
     db = initialize_firestore()
     users = db.collection("users").stream()
 
@@ -162,7 +181,7 @@ def process_all_users(data, context):
                 # Firestoreにデータを保存
                 save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data)
 
-        print("データの取得および保存が完了しました。")
+        return("データの取得および保存が完了しました。", 200)
 
 # メイン処理
 if __name__ == "__main__":
