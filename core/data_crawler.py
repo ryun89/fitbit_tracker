@@ -185,4 +185,10 @@ def process_all_users(data, context=None):
 
 # メイン処理
 if __name__ == "__main__":
-    process_all_users(data, context)
+    data = {
+        "time": [datetime(2025, 3, 1, 12, 0, i) for i in [0, 3, 7, 10, 15, 20, 25, 30, 35, 40]],
+        "value": [70, 72, 75, 78, 80, 82, 85, 88, 90, 92]
+    }
+    df = pd.DataFrame(data)
+    print("リサンプリング前:", df)
+    print("リサンプリングあと:", resample_to_5s(df))
