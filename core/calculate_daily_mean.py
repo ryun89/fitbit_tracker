@@ -57,7 +57,7 @@ def calculate_and_store_daily_mean(data, context=None):
                 "average_value": average_value,
                 "timestamp": firestore.SERVER_TIMESTAMP
             })
-            print(f"{experiment_id} - {data_type}: 平均値 {mean} を保存しました。")
+            print(f"{experiment_id} - {data_type}: 平均値 {average_value} を保存しました。")
             
     return "ok", 200
 
