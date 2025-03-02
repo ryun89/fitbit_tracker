@@ -1,13 +1,19 @@
 import pandas as pd
 from firebase_admin import firestore
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from firebase_auth import initialize_firestore
 
 # Firestoreの初期化
 db = initialize_firestore()
 
+# 日本時間のタイムゾーン
+JST = timezone(timedelta(hours=9))
+
+# 現在の日本時間
+now_jst = datetime.now(JST)
+
 # 前日の日付を取得
-yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+yesterday = (now_jst - timedelta(days=1)).strftime("%Y-%m-%d")
 
 # 保存先のコレクション名
 DAILY_SUMMARY = "daily_summary"
