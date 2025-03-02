@@ -20,7 +20,6 @@ start_time = one_hour_ago.strftime("%H:%M")  # 1時間前の時刻 (HH:MM形式)
 end_time = now_jst.strftime("%H:%M")  # 現在の時刻 (HH:MM形式)
 
 # Fitbit APIのエンドポイントをリストで管理
-# Fitbit APIのエンドポイントをリストで管理
 ENDPOINTS = [
     {
         "data_type": "steps",  # 歩数
@@ -117,7 +116,7 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data)
         batch = db.batch()
         for data_point in dataset:
             doc_ref = db.collection("activity_data") \
-                .document(user_id) \
+                .document(experiment_id) \
                 .collection(data_type) \
                 .document()
                 
