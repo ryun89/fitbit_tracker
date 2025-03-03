@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 # Firestoreにアカウント情報を登録する
 def save_user_data_to_firestore(db, user_id, token_response, experiment_id):
-    db.collection("users").document(user_id).set({
+    db.collection("users").document(experiment_id).set({
         "fitbit_client_id": st.session_state["CLIENT_ID"],
         "fitbit_client_secret": st.session_state["CLIENT_SECRET"],
         "fitbit_access_token": token_response["access_token"],
@@ -92,13 +92,13 @@ def account_creation_screen(db):
 # ログイン画面
 def login_screen(db):
     st.title("ログイン")
-    user_id = st.text_input("ユーザーIDを入力してください")
+    experiment_id = st.text_input("実験IDを入力してください")
     if st.button("ログイン"):
-        user_doc = db.collection("users").document(user_id).get()
+        user_doc = db.collection("users").document(experiment_id).get()
         if user_doc.exists:
             st.success("ログイン成功！")
             st.session_state["logged_in"] = True
-            st.session_state["user_id"] = user_id
+            st.session_state["experiment_id"] = experiment_id
         else:
             st.error("アカウントが見つかりません。新しいアカウントを作成してください。")
 
@@ -107,28 +107,32 @@ def login_screen(db):
 def main_screen(db):
     st.title("Fitbit Tracker メイン画面")
 
-    user_id = st.session_state["user_id"]
+    experiment_id = st.session_state["experiment_id"]
     data_type = st.selectbox("データタイプを選択してください", ["steps", "heart", "calories", "distance", "floors", "active_minutes"])
     date = st.date_input("日付を選択してください")
 
     if st.button("データを取得"):
+        formatted_date = date.strftime("%Y-%m-%d")
+        print(f"検索クエリ: activity_data/EX02/{data_type} where date == {formatted_date}") # デバッグ用
         # 指定した日付のデータを取得
-        query = db.collection("activity_data") \
-                  .where("user_id", "==", user_id) \
-                  .where("data_type", "==", data_type) \
-                  .where("date", "==", date.strftime("%Y-%m-%d"))
-        docs = query.stream()
+        docs = db.collection("activity_data") \
+                    .document(experiment_id) \
+                    .collection(data_type) \
+                    .where("date", "==", formatted_date) \
+                    .stream()
         data = [doc.to_dict() for doc in docs]
 
         # 過去7日間の平均を計算
         start_date = date - timedelta(days=7)
-        query_avg = db.collection("activity_data") \
-                      .where("user_id", "==", user_id) \
-                      .where("data_type", "==", data_type) \
-                      .where("date", ">=", start_date.strftime("%Y-%m-%d")) \
-                      .where("date", "<", date.strftime("%Y-%m-%d"))
-        docs_avg = query_avg.stream()
+        docs_avg = db.collection("daily_summary") \
+                        .document(experiment_id) \
+                        .collection(data_type) \
+                        .where("date", ">=", start_date.strftime("%Y-%m-%d")) \
+                        .where("date", "<", date.strftime("%Y-%m-%d")) \
+                        .stream()
+                                
         data_avg = [doc.to_dict() for doc in docs_avg]
+        print("取得データ:", data_avg)  # デバッグ用
 
         if data:
             st.write(f"{date} の {data_type} データ")
@@ -139,7 +143,7 @@ def main_screen(db):
             # 過去7日間の平均値を計算
             if data_avg:
                 df_avg = pd.DataFrame(data_avg)
-                avg_value = df_avg["value"].mean()  # 平均値を計算
+                avg_value = df_avg["average_value"].mean()  # 平均値を計算
             else:
                 avg_value = None
 
@@ -171,6 +175,7 @@ def main():
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
         st.session_state["user_id"] = None
+        st.session_state["experiment_id"] = None
 
     if not st.session_state["logged_in"]:
         option = st.sidebar.selectbox("選択してください", ["ログイン", "アカウント作成"])
