@@ -115,6 +115,7 @@ def main_screen(db):
         formatted_date = date.strftime("%Y-%m-%d")
         print(f"検索クエリ: activity_data/EX02/{data_type} where date == {formatted_date}") # デバッグ用
         # 指定した日付のデータを取得
+        # TODO 検証用のアカウントを登録して実験IDからデータを取得できることを確認する
         docs = db.collection("activity_data") \
                     .document("EX02") \
                     .collection(data_type) \
@@ -123,6 +124,7 @@ def main_screen(db):
         data = [doc.to_dict() for doc in docs]
 
         # 過去7日間の平均を計算
+        # 検証用のアカウントを登録して実験IDからデータを取得できることを確認する
         start_date = date - timedelta(days=7)
         docs_avg = db.collection("daily_summary") \
                         .document("EX02") \
