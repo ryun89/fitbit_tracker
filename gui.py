@@ -116,7 +116,7 @@ def main_screen(db):
 
     if st.button("データを取得"):
         formatted_date = date.strftime("%Y-%m-%d")
-        print(f"検索クエリ: activity_data/EX02/{data_type} where date == {formatted_date}") # デバッグ用
+        print(f"検索クエリ: activity_data/{experiment_id}/{data_type} where date == {formatted_date}") # デバッグ用
         # 指定した日付のデータを取得
         docs = db.collection("activity_data") \
                     .document(experiment_id) \
