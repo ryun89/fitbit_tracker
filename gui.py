@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 
 # Firestoreにアカウント情報を登録する
-def save_user_data_to_firestore(db, user_id, token_response, experiment_id):
+def save_user_data_to_firestore(db, user_id, token_response, experiment_id, slack_dm_id):
     db.collection("users").document(experiment_id).set({
         "fitbit_client_id": st.session_state["CLIENT_ID"],
         "fitbit_client_secret": st.session_state["CLIENT_SECRET"],
@@ -21,6 +21,7 @@ def save_user_data_to_firestore(db, user_id, token_response, experiment_id):
         "refresh_token": token_response["refresh_token"],
         "token_expiration": token_response["expires_in"],
         "experiment_id": experiment_id,
+        "slack_dm_id": slack_dm_id,
     })
     st.success("アカウントが保存されました！")
 
@@ -43,6 +44,8 @@ def account_creation_screen(db):
 
     # ユーザー入力
     user_id = st.text_input("新しいユーザーIDを入力してください")
+    st.session_state["slack_dm_id"] = st.text_input("SlackのDM IDを入力してください", value=st.session_state.get("slack_dm_id"))
+    st.write("SlackのDM IDは、Slackのメッセージを送る際に使用するので、正確に記述してください。")
     st.session_state["CLIENT_ID"] = st.text_input("Fitbit APIのクライアントIDを入力してください", value=st.session_state["CLIENT_ID"])
     st.session_state["CLIENT_SECRET"] = st.text_input("Fitbit APIのクライアントシークレットを入力してください", value=st.session_state["CLIENT_SECRET"])
     REDIRECT_URI = "https://fitbittracker-bczlqhsg8z7tmzyjptxynr.streamlit.app/callback"  # 変更不要
@@ -79,7 +82,7 @@ def account_creation_screen(db):
                     REDIRECT_URI
                 )
                 if token_response:
-                    save_user_data_to_firestore(db, user_id, token_response, st.session_state["experiment_id"])
+                    save_user_data_to_firestore(db, user_id, token_response, st.session_state["experiment_id"], st.session_state["slack_dm_id"])
                     st.success("アカウントが作成されました！ログインしてください。")
                     st.session_state["logged_in"] = True
                     st.session_state["user_id"] = user_id
@@ -113,7 +116,7 @@ def main_screen(db):
 
     if st.button("データを取得"):
         formatted_date = date.strftime("%Y-%m-%d")
-        print(f"検索クエリ: activity_data/EX02/{data_type} where date == {formatted_date}") # デバッグ用
+        print(f"検索クエリ: activity_data/{experiment_id}/{data_type} where date == {formatted_date}") # デバッグ用
         # 指定した日付のデータを取得
         docs = db.collection("activity_data") \
                     .document(experiment_id) \
@@ -121,6 +124,14 @@ def main_screen(db):
                     .where("date", "==", formatted_date) \
                     .stream()
         data = [doc.to_dict() for doc in docs]
+        
+        # 介入データを取得
+        intervention_docs = db.collection("interventions") \
+                                .document(experiment_id) \
+                                .collection(formatted_date) \
+                                .stream()
+        print(f"検索クエリ: interventions/{experiment_id}/{formatted_date}")  # デバッグ用
+        intervention_data = [doc.to_dict() for doc in intervention_docs]
 
         # 過去7日間の平均を計算
         start_date = date - timedelta(days=7)
@@ -139,6 +150,20 @@ def main_screen(db):
             df = pd.DataFrame(data)
             df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")
             df = df.sort_values(by="time")
+            
+            if intervention_data:
+                print("介入データ:", intervention_data)  # デバッグ用
+                df_intervention = pd.DataFrame(intervention_data)
+                df_intervention["time"] = pd.to_datetime(df_intervention["time"], format="%H:%M:%S")
+                
+                # 介入時間ごとに、一番近い `df` の値を取得
+                df_intervention["value"] = df_intervention["time"].apply(
+                    lambda t: df.loc[(df["time"] - t).abs().idxmin(), "value"]
+                    if not df.empty else None
+                )
+                df_intervention.dropna(inplace=True)  # NaN を削除（該当する値がなかった場合）
+            else:
+                df_intervention = pd.DataFrame(columns=["time", "message"])
 
             # 過去7日間の平均値を計算
             if data_avg:
@@ -155,6 +180,17 @@ def main_screen(db):
                 width=700,  # グラフの幅
                 height=400  # グラフの高さ
             )
+            
+            # 介入点をプロットする
+            if not df_intervention.empty:
+                intervention_marks = alt.Chart(df_intervention).mark_circle(
+                    color="blue", size=300
+                ).encode(
+                    x="time:T",
+                    y="value:Q",  # 修正点：介入時の `y` 値を `df` から取得した値にする
+                    tooltip=["message"]  # ホバーで介入メッセージを表示
+                )
+                chart = chart + intervention_marks
 
             # 過去7日間の平均値を横線として追加
             if avg_value is not None:

@@ -5,6 +5,10 @@ from datetime import datetime, timedelta, timezone
 import base64
 import pandas as pd
 
+SLACK_TOKEN = ""  # Botのトークン ベタガキなのはセキュリティ上の理由でよくない
+user_id = ""  # 送信先ユーザーのSlack ID
+message = ""
+
 # 日本時間のタイムゾーン
 JST = timezone(timedelta(hours=9))
 
@@ -13,6 +17,9 @@ now_jst = datetime.now(JST)
 
 # 1時間前の時刻を取得
 one_hour_ago = now_jst - timedelta(hours=1)
+
+# 1週間前の日付を取得
+one_week_ago = (now_jst - timedelta(days=7)).strftime("%Y-%m-%d")
 
 # 日付、開始時刻、終了時刻を指定
 date = one_hour_ago.strftime("%Y-%m-%d")  # 日付
@@ -100,7 +107,7 @@ def refresh_access_token(refresh_token, client_id, client_secret):
         return None
 
 # データを整形してFirestoreに保存
-def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data):
+def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data, slack_dm_id):
     try:
         dataset = activity_data.get(f"activities-{data_type}-intraday", {}).get("dataset", [])
         date = activity_data.get(f"activities-{data_type}", [{}])[0].get("dateTime", "unknown_date")
@@ -112,6 +119,30 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data)
             df = pd.DataFrame(dataset)
             df_resampled = resample_to_5s(df)
             dataset = df_resampled.to_dict(orient="records") # レコードのリストに変換
+            
+        # 歩数だった場合介入を行うかを判定する
+        if data_type == "steps":
+            df = pd.DataFrame(dataset)
+            hourly_step_mean = df["value"].mean()
+            
+            # 直近１週間の歩数データの平均値と標準偏差を計算
+            mean_steps, std_steps = calculate_weekly_mean_and_std(experiment_id)
+            
+            # 直近1週間の平均値から0.5標準偏差以上離れた場合は介入
+            if hourly_step_mean < mean_steps - 0.5 * std_steps:
+                print("歩数が平均値よりも0.5標準偏差以上低いため、介入が必要です。")
+                message = "最近のペースよりも歩数が少なめですね！少し体を動かしてみませんか？🏃‍♂️"
+                # 介入処理を行う
+                send_dm(SLACK_TOKEN, experiment_id, slack_dm_id, message)
+            elif hourly_step_mean > mean_steps + 0.5 * std_steps:
+                print("歩数が平均値よりも0.5標準偏差以上高いため、介入が必要です。")
+                message = "今日はよく動いていますね！少し休憩をとるのも大事ですよ ☕"
+                # 介入処理を行う
+                send_dm(SLACK_TOKEN, experiment_id, slack_dm_id, message)
+            else:
+                print("歩数は平均値の範囲内です。")
+                message = "歩数は平均値の範囲内です。"
+                send_dm(SLACK_TOKEN, experiment_id, slack_dm_id, message)
 
         batch = db.batch()
         for data_point in dataset:
@@ -142,6 +173,87 @@ def resample_to_5s(df) -> pd.DataFrame:
     
     return df_resampled
 
+def calculate_weekly_mean_and_std(experiment_id: str):
+    """
+    指定したユーザの週次の平均値と標準偏差を計算して返す
+    """
+    # Firestoreの初期化
+    db = initialize_firestore()
+    # 日本時間のタイムゾーン
+    JST = timezone(timedelta(hours=9))
+    # 現在の日本時間
+    now_jst = datetime.now(JST)
+    # 1週間前の日付を取得
+    one_week_ago = (now_jst - timedelta(days=7)).strftime("%Y-%m-%d")
+    
+    # 実験IDからユーザ情報を取得
+    user_doc = db.collection("users").document(experiment_id).get()
+    if not user_doc.exists:
+        raise ValueError(f"ユーザ {experiment_id} が見つかりませんでした。")
+        return None, None
+    
+        # 過去1週間の歩数データを取得
+    steps_data = db.collection("activity_data") \
+                   .document(experiment_id) \
+                   .collection("steps") \
+                   .where("date", ">=", one_week_ago) \
+                   .stream()
+                   
+    data = [doc.to_dict() for doc in steps_data]
+
+    if not data:
+        print(f"{experiment_id}: 過去1週間の歩数データがありません。")
+        return None, None
+
+    # DataFrameに変換
+    df = pd.DataFrame(data)
+
+    # 平均値と標準偏差を計算
+    mean_steps = df["value"].mean()
+    std_steps = df["value"].std()
+
+    print(f"{experiment_id}: 1週間の平均歩数: {mean_steps}, 標準偏差: {std_steps}")
+
+    return mean_steps, std_steps
+
+def send_dm(token, experiment_id, channel, text):
+    """
+    Botから指定のIDのDMに対してメッセージを送る
+    """
+    url = "https://slack.com/api/chat.postMessage"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "channel": channel,
+        "text": text
+    }
+    
+    response = requests.post(url, json=payload, headers=headers)
+    
+    # レスポンスの内容をログに出力
+    print("Slack response:", response.json())
+    add_intervention(experiment_id=experiment_id, message=text)
+    print("介入ログを保存しました。")
+
+    return response.json()  # APIのレスポンスを返す
+
+def add_intervention(experiment_id, message):
+    """
+    介入ログをFirestoreに保存する
+    """
+    db = initialize_firestore()
+    now_jst = datetime.now(JST) # 最新の日本時間を取得
+    date = now_jst.strftime("%Y-%m-%d")  # YYYY-MM-DD 形式
+    interventions_ref = db.collection("interventions").document(experiment_id).collection(date).document()
+    interventions_ref.set({
+        "date": date,
+        "time": now_jst.strftime("%H:%M:%S"),  # HH:MM:SS 形式
+        "message": message,
+        "timestamp": firestore.SERVER_TIMESTAMP  # Firestoreのサーバー時間も一応保存
+    })
+    
 # 全ユーザーのデータを取得
 def process_all_users(data, context=None):
     db = initialize_firestore()
@@ -155,6 +267,7 @@ def process_all_users(data, context=None):
         client_id = user_data["fitbit_client_id"]
         client_secret = user_data["fitbit_client_secret"]
         experiment_id = user_data.get("experiment_id", "default_experiment")
+        slack_dm_id = user_data["slack_dm_id"]
 
         for endpoint_info in ENDPOINTS:
             data_type = endpoint_info["data_type"]
@@ -178,16 +291,10 @@ def process_all_users(data, context=None):
 
             if activity_data and activity_data != "token_expired":
                 # Firestoreにデータを保存
-                save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data)
+                save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data, slack_dm_id)
 
         return("データの取得および保存が完了しました。", 200)
 
 # メイン処理
 if __name__ == "__main__":
-    data = {
-        "time": [datetime(2025, 3, 1, 12, 0, i) for i in [0, 3, 7, 10, 15, 20, 25, 30, 35, 40]],
-        "value": [70, 72, 75, 78, 80, 82, 85, 88, 90, 92]
-    }
-    df = pd.DataFrame(data)
-    print("リサンプリング前:", df)
-    print("リサンプリングあと:", resample_to_5s(df))
+    send_dm(token=SLACK_TOKEN, experiment_id="EX02", channel="U08GP8GMXRN", text="テストメッセージ")
