@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 
 # Firestoreにアカウント情報を登録する
-def save_user_data_to_firestore(db, user_id, token_response, experiment_id):
+def save_user_data_to_firestore(db, user_id, token_response, experiment_id, slack_dm_id):
     db.collection("users").document(experiment_id).set({
         "fitbit_client_id": st.session_state["CLIENT_ID"],
         "fitbit_client_secret": st.session_state["CLIENT_SECRET"],
@@ -21,6 +21,7 @@ def save_user_data_to_firestore(db, user_id, token_response, experiment_id):
         "refresh_token": token_response["refresh_token"],
         "token_expiration": token_response["expires_in"],
         "experiment_id": experiment_id,
+        "slack_dm_id": slack_dm_id,
     })
     st.success("アカウントが保存されました！")
 
@@ -43,6 +44,8 @@ def account_creation_screen(db):
 
     # ユーザー入力
     user_id = st.text_input("新しいユーザーIDを入力してください")
+    st.session_state["slack_dm_id"] = st.text_input("SlackのDM IDを入力してください", value=st.session_state.get("slack_dm_id"))
+    st.write("SlackのDM IDは、Slackのメッセージを送る際に使用するので、正確に記述してください。")
     st.session_state["CLIENT_ID"] = st.text_input("Fitbit APIのクライアントIDを入力してください", value=st.session_state["CLIENT_ID"])
     st.session_state["CLIENT_SECRET"] = st.text_input("Fitbit APIのクライアントシークレットを入力してください", value=st.session_state["CLIENT_SECRET"])
     REDIRECT_URI = "https://fitbittracker-bczlqhsg8z7tmzyjptxynr.streamlit.app/callback"  # 変更不要
