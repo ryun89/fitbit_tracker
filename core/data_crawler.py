@@ -127,23 +127,22 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data,
             
             # 直近１週間の歩数データの平均値と標準偏差を計算
             mean_steps, std_steps = calculate_weekly_mean_and_std(experiment_id)
-            # 介入を行うユーザのDMのIDを取得
             
             # 直近1週間の平均値から0.5標準偏差以上離れた場合は介入
             if hourly_step_mean < mean_steps - 0.5 * std_steps:
                 print("歩数が平均値よりも0.5標準偏差以上低いため、介入が必要です。")
                 message = "最近のペースよりも歩数が少なめですね！少し体を動かしてみませんか？🏃‍♂️"
                 # 介入処理を行う
-                send_dm(SLACK_TOKEN, slack_dm_id, message)
+                send_dm(SLACK_TOKEN, experiment_id, slack_dm_id, message)
             elif hourly_step_mean > mean_steps + 0.5 * std_steps:
                 print("歩数が平均値よりも0.5標準偏差以上高いため、介入が必要です。")
                 message = "今日はよく動いていますね！少し休憩をとるのも大事ですよ ☕"
                 # 介入処理を行う
-                send_dm(SLACK_TOKEN, slack_dm_id, message)
+                send_dm(SLACK_TOKEN, experiment_id, slack_dm_id, message)
             else:
                 print("歩数は平均値の範囲内です。")
                 message = "歩数は平均値の範囲内です。"
-                send_dm(SLACK_TOKEN, slack_dm_id, message)
+                send_dm(SLACK_TOKEN, experiment_id, slack_dm_id, message)
 
         batch = db.batch()
         for data_point in dataset:
@@ -217,7 +216,7 @@ def calculate_weekly_mean_and_std(experiment_id: str):
 
     return mean_steps, std_steps
 
-def send_dm(token, channel, text):
+def send_dm(token, experiment_id, channel, text):
     """
     Botから指定のIDのDMに対してメッセージを送る
     """
@@ -235,9 +234,26 @@ def send_dm(token, channel, text):
     
     # レスポンスの内容をログに出力
     print("Slack response:", response.json())
+    add_intervention(experiment_id=experiment_id, message=text)
+    print("介入ログを保存しました。")
 
     return response.json()  # APIのレスポンスを返す
 
+def add_intervention(experiment_id, message):
+    """
+    介入ログをFirestoreに保存する
+    """
+    db = initialize_firestore()
+    now_jst = datetime.now(JST) # 最新の日本時間を取得
+    date = now_jst.strftime("%Y-%m-%d")  # YYYY-MM-DD 形式
+    interventions_ref = db.collection("interventions").document(experiment_id).collection(date).document()
+    interventions_ref.set({
+        "date": date,
+        "time": now_jst.strftime("%H:%M:%S"),  # HH:MM:SS 形式
+        "message": message,
+        "timestamp": firestore.SERVER_TIMESTAMP  # Firestoreのサーバー時間も一応保存
+    })
+    
 # 全ユーザーのデータを取得
 def process_all_users(data, context=None):
     db = initialize_firestore()
@@ -281,5 +297,4 @@ def process_all_users(data, context=None):
 
 # メイン処理
 if __name__ == "__main__":
-    process_all_users(None)
-    print("処理が完了しました。")
+    send_dm(token=SLACK_TOKEN, experiment_id="EX02", channel="U08GP8GMXRN", text="テストメッセージ")
