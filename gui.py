@@ -124,6 +124,14 @@ def main_screen(db):
                     .where("date", "==", formatted_date) \
                     .stream()
         data = [doc.to_dict() for doc in docs]
+        
+        # 介入データを取得
+        intervention_docs = db.collection("interventions") \
+                                .document(experiment_id) \
+                                .collection(formatted_date) \
+                                .stream()
+        print(f"検索クエリ: interventions/{experiment_id}/{formatted_date}")  # デバッグ用
+        intervention_data = [doc.to_dict() for doc in intervention_docs]
 
         # 過去7日間の平均を計算
         start_date = date - timedelta(days=7)
@@ -142,6 +150,20 @@ def main_screen(db):
             df = pd.DataFrame(data)
             df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")
             df = df.sort_values(by="time")
+            
+            if intervention_data:
+                print("介入データ:", intervention_data)  # デバッグ用
+                df_intervention = pd.DataFrame(intervention_data)
+                df_intervention["time"] = pd.to_datetime(df_intervention["time"], format="%H:%M:%S")
+                
+                # 介入時間ごとに、一番近い `df` の値を取得
+                df_intervention["value"] = df_intervention["time"].apply(
+                    lambda t: df.loc[(df["time"] - t).abs().idxmin(), "value"]
+                    if not df.empty else None
+                )
+                df_intervention.dropna(inplace=True)  # NaN を削除（該当する値がなかった場合）
+            else:
+                df_intervention = pd.DataFrame(columns=["time", "message"])
 
             # 過去7日間の平均値を計算
             if data_avg:
@@ -158,6 +180,17 @@ def main_screen(db):
                 width=700,  # グラフの幅
                 height=400  # グラフの高さ
             )
+            
+            # 介入点をプロットする
+            if not df_intervention.empty:
+                intervention_marks = alt.Chart(df_intervention).mark_circle(
+                    color="blue", size=300
+                ).encode(
+                    x="time:T",
+                    y="value:Q",  # 修正点：介入時の `y` 値を `df` から取得した値にする
+                    tooltip=["message"]  # ホバーで介入メッセージを表示
+                )
+                chart = chart + intervention_marks
 
             # 過去7日間の平均値を横線として追加
             if avg_value is not None:
