@@ -82,7 +82,7 @@ def account_creation_screen(db):
                     REDIRECT_URI
                 )
                 if token_response:
-                    save_user_data_to_firestore(db, user_id, token_response, st.session_state["experiment_id"])
+                    save_user_data_to_firestore(db, user_id, token_response, st.session_state["experiment_id"], st.session_state["slack_dm_id"])
                     st.success("アカウントが作成されました！ログインしてください。")
                     st.session_state["logged_in"] = True
                     st.session_state["user_id"] = user_id
