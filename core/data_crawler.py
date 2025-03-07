@@ -26,6 +26,11 @@ date = one_hour_ago.strftime("%Y-%m-%d")  # 日付
 start_time = one_hour_ago.strftime("%H:%M")  # 1時間前の時刻 (HH:MM形式)
 end_time = now_jst.strftime("%H:%M")  # 現在の時刻 (HH:MM形式)
 
+# 指定の時間帯に介入を行うようにする関数
+def should_intervene():
+    intervene_hours = [9, 14, 20]
+    return now_jst.hour in intervene_hours
+
 # Fitbit APIのエンドポイントをリストで管理
 ENDPOINTS = [
     {
@@ -121,7 +126,7 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data,
             dataset = df_resampled.to_dict(orient="records") # レコードのリストに変換
             
         # 歩数だった場合介入を行うかを判定する
-        if data_type == "steps":
+        if data_type == "steps" and should_intervene():
             df = pd.DataFrame(dataset)
             hourly_step_mean = df["value"].mean()
             
@@ -297,4 +302,10 @@ def process_all_users(data, context=None):
 
 # メイン処理
 if __name__ == "__main__":
-    send_dm(token=SLACK_TOKEN, experiment_id="EX02", channel="U08GP8GMXRN", text="テストメッセージ")
+    now_jst = datetime(2025, 3, 5, 9, 30, tzinfo=JST)  # 9:30 に変更
+    if should_intervene():
+        print("現在の時刻:", now_jst.strftime("%Y-%m-%d %H:%M:%S"))
+        print("✅ 介入を実施します。")
+    else:
+        print("現在の時刻:", now_jst.strftime("%Y-%m-%d %H:%M:%S"))
+        print("⏳ 現在は介入時間ではありません。")
