@@ -171,15 +171,23 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data,
         print(f"Firestoreの保存中にエラーが発生しました: {e}")
         
 # 5秒ごとにリサンプリングする関数（線形補間）
-def resample_to_5s(df) -> pd.DataFrame:
-    # time列を明示的に datetime 型に変換
-    df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")  
-    
-    df.set_index("time", inplace=True)  # インデックスを時間に設定
+def resample_to_5s(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    心拍数データを5秒ごとに補間し、`time` 列をHH:MM:SS形式のみに統一する関数
+    """
+    # `time` を明示的に datetime 型に変換（ダミー日付を設定）
+    df["datetime"] = pd.to_datetime("2000-01-01 " + df["time"])
+
+    # インデックスを datetime に設定
+    df.set_index("datetime", inplace=True)
+
     # 5秒ごとのデータに線形補間
     df_resampled = df.resample("5S").interpolate(method="linear").reset_index()
-    
-    return df_resampled
+
+    # `time` カラムを HH:MM:SS 形式に戻し、datetime は削除
+    df_resampled["time"] = df_resampled["datetime"].dt.strftime("%H:%M:%S")
+
+    return df_resampled.drop(columns=["datetime"])
 
 def calculate_weekly_mean_and_std(experiment_id: str):
     """
