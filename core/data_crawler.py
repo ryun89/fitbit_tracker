@@ -172,6 +172,9 @@ def save_data_to_firestore(db, user_id, experiment_id, data_type, activity_data,
         
 # 5秒ごとにリサンプリングする関数（線形補間）
 def resample_to_5s(df) -> pd.DataFrame:
+    # time列を明示的に datetime 型に変換
+    df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")  
+    
     df.set_index("time", inplace=True)  # インデックスを時間に設定
     # 5秒ごとのデータに線形補間
     df_resampled = df.resample("5S").interpolate(method="linear").reset_index()
@@ -302,10 +305,4 @@ def process_all_users(data, context=None):
 
 # メイン処理
 if __name__ == "__main__":
-    now_jst = datetime(2025, 3, 5, 9, 30, tzinfo=JST)  # 9:30 に変更
-    if should_intervene():
-        print("現在の時刻:", now_jst.strftime("%Y-%m-%d %H:%M:%S"))
-        print("✅ 介入を実施します。")
-    else:
-        print("現在の時刻:", now_jst.strftime("%Y-%m-%d %H:%M:%S"))
-        print("⏳ 現在は介入時間ではありません。")
+    process_all_users(None)
