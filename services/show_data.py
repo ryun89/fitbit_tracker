@@ -39,7 +39,7 @@ def display_data_chart(db, experiment_id, data_type, date):
     print("取得データ:", data_avg)  # デバッグ用
 
     if data:
-        st.write(f"{date} の {data_type} データ")
+        st.write(f"{formatted_date} の {data_type} データ")
         df = pd.DataFrame(data)
         df["time"] = pd.to_datetime(df["time"], format="%H:%M:%S")
         df = df.sort_values(by="time")

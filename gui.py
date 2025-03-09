@@ -112,10 +112,19 @@ def main_screen(db):
     st.title("Fitbit Tracker メイン画面")
 
     experiment_id = st.session_state["experiment_id"]
-    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart", "calories", "distance", "floors", "active_minutes"])
+        
+    if "default_chart_shown" not in st.session_state:
+        st.session_state["default_chart_shown"] = False  # 初回読み込みで心拍数を表示したかどうかのフラグ
+        
+    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart", "calories", "distance", "floors", "active_minutes"], index=1)
     date = st.date_input("日付を選択してください")
+    
+    if not st.session_state["default_chart_shown"] and experiment_id:
+        with st.spinner("データを取得中..."):
+            display_data_chart(db, experiment_id, data_type="heart", date=datetime.now())
+        st.session_state["default_chart_shown"] = True
 
-    if st.button("データを取得"):
+    with st.spinner("データを取得中..."):
         display_data_chart(db, experiment_id, data_type, date)
 
 # メイン関数
