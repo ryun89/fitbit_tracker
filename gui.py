@@ -5,6 +5,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import webbrowser
+import time
 from firebase_admin import firestore
 sys.path.append(os.path.join(os.path.dirname(__file__), "core"))
 from core.firebase_auth import initialize_firestore
@@ -103,6 +104,8 @@ def login_screen(db):
             st.success("ログイン成功！")
             st.session_state["logged_in"] = True
             st.session_state["experiment_id"] = experiment_id
+            time.sleep(1)  # 1秒待機してから画面更新
+            st.rerun()  # 画面を更新して即座にメイン画面に移動
         else:
             st.error("アカウントが見つかりません。新しいアカウントを作成してください。")
             
