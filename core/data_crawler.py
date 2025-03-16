@@ -201,6 +201,9 @@ def calculate_weekly_mean_and_std(experiment_id: str):
     now_jst = datetime.now(JST)
     # 1週間前の日付を取得
     one_week_ago = (now_jst - timedelta(days=7)).strftime("%Y-%m-%d")
+    # データ取得時間帯の範囲（8:00〜24:00）
+    start_time = "08:00:00"
+    end_time = "23:59:59"  # 24:00はFirestoreのクエリで指定できないため 23:59:59 を使用
     
     # 実験IDからユーザ情報を取得
     user_doc = db.collection("users").document(experiment_id).get()
@@ -208,21 +211,24 @@ def calculate_weekly_mean_and_std(experiment_id: str):
         raise ValueError(f"ユーザ {experiment_id} が見つかりませんでした。")
         return None, None
     
-        # 過去1週間の歩数データを取得
+    # 過去1週間の歩数データを取得
     steps_data = db.collection("activity_data") \
-                   .document(experiment_id) \
-                   .collection("steps") \
-                   .where("date", ">=", one_week_ago) \
-                   .stream()
+                    .document(experiment_id) \
+                    .collection("steps") \
+                    .where("date", ">=", one_week_ago) \
+                    .stream()
                    
     data = [doc.to_dict() for doc in steps_data]
+    
+    # Python 側で `time` フィルタリング（8:00 ~ 24:00 の範囲）
+    filtered_data = [d for d in data if "08:00:00" <= d["time"] <= "23:59:59"]
 
-    if not data:
+    if not filtered_data:
         print(f"{experiment_id}: 過去1週間の歩数データがありません。")
         return None, None
 
     # DataFrameに変換
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(filtered_data)
 
     # 平均値と標準偏差を計算
     mean_steps = df["value"].mean()
@@ -313,4 +319,4 @@ def process_all_users(data, context=None):
 
 # メイン処理
 if __name__ == "__main__":
-    process_all_users(None)
+    calculate_weekly_mean_and_std(experiment_id="EX02")
