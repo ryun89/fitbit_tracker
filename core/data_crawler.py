@@ -69,6 +69,12 @@ ENDPOINTS = [
         "start_time": start_time,
         "end_time": end_time
     },
+        {
+        "data_type": "sedentary_minutes",  # 静止時間
+        "endpoint": f"/1/user/-/activities/minutesSedentary/date/{date}/1d/1min/time/{start_time}/{end_time}.json",
+        "start_time": start_time,
+        "end_time": end_time
+    },
 ]
 
 
