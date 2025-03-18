@@ -116,7 +116,7 @@ def main_screen(db):
 
     experiment_id = st.session_state["experiment_id"]
         
-    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart", "calories", "distance", "floors", "active_minutes"], index=0)
+    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart", "calories", "distance", "floors", "active_minutes", "minutesSedentary"], index=0)
     date = st.date_input("日付を選択してください")
 
     with st.spinner("データを取得中..."):
