@@ -110,17 +110,66 @@ def login_screen(db):
             st.error("アカウントが見つかりません。新しいアカウントを作成してください。")
             
 
+# 初期データ設定
+DEFAULT_DATA_TYPES = ["heart", "steps", "minutesSedentary"]
+
 # メイン画面
 def main_screen(db):
-    st.title("Fitbit Tracker メイン画面")
+    st.title("Fitbit Tracker")
 
     experiment_id = st.session_state["experiment_id"]
-        
-    data_type = st.selectbox("データタイプを選択してください", ["steps", "heart", "calories", "distance", "floors", "active_minutes", "minutesSedentary"], index=0)
-    date = st.date_input("日付を選択してください")
+    today = datetime.now().date()
 
-    with st.spinner("データを取得中..."):
-        display_data_chart(db, experiment_id, data_type, date)
+    # 上部にナビゲーションバーを配置
+    with st.container():
+        st.markdown("### 🔍 データ選択")
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            selected_data_type = st.selectbox(
+                "データタイプを選択",
+                ["heart", "steps", "calories", "distance", "floors", "active_minutes", "minutesSedentary"]
+            )
+        with col2:
+            selected_date = st.date_input("日付を選択", value=today)
+        with col3:
+            if st.button("表示"):
+                st.session_state["selected_data_type"] = selected_data_type
+                st.session_state["selected_date"] = selected_date
+                st.session_state["show_default"] = False  # デフォルト表示をオフにする
+                
+    # 視認性悪いからスペース開ける
+    st.write("")  # 空行を追加
+
+    # デフォルト表示設定
+    if "show_default" not in st.session_state:
+        st.session_state["show_default"] = True
+        st.session_state["selected_data_type"] = None
+        st.session_state["selected_date"] = today
+
+    # 初期表示時はデフォルトの3つのデータを表示
+    if st.session_state["show_default"]:
+        st.subheader("💓 今日の心拍数")
+        with st.spinner("心拍数データを取得中..."):
+            display_data_chart(db, experiment_id, data_type="heart", date=today)
+
+        st.markdown("---")
+
+        st.subheader("🚶‍♂️ 今日の歩数")
+        with st.spinner("歩数データを取得中..."):
+            display_data_chart(db, experiment_id, data_type="steps", date=today)
+
+        st.markdown("---")
+
+        st.subheader("🪑 今日の座位時間")
+        with st.spinner("座位時間データを取得中..."):
+            display_data_chart(db, experiment_id, data_type="minutesSedentary", date=today)
+    
+    # 選択後のデータ表示
+    if not st.session_state["show_default"]:
+        st.header(f"{st.session_state['selected_date']} の {st.session_state['selected_data_type']} データ")
+        with st.spinner(f"{st.session_state['selected_data_type']} データを取得中..."):
+            display_data_chart(db, experiment_id, data_type=st.session_state["selected_data_type"], date=st.session_state["selected_date"])
 
 # メイン関数
 def main():
